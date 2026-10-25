@@ -114,9 +114,7 @@ api_key = st.sidebar.text_input(
     placeholder="Paste AIzaSy... key here",
 )
 
-st.write(
-    "I use **Google Gemini 1.5 Flash** as my brain to check websites, SSL, and system health!"
-)
+st.write("I use **Google Gemini 2.5 Flash** as my AI brain!")
 
 user_query = st.text_input(
     "Ask your AIOps Agent:",
@@ -130,10 +128,11 @@ if st.button("Run Agent"):
         )
     elif user_query:
         clean_key = api_key.strip()
-        with st.spinner("Executing diagnostics using Gemini 1.5 Flash..."):
+        with st.spinner("Executing diagnostics using Gemini 2.5 Flash..."):
             try:
+                # ప్రస్తుతం పనిచేస్తున్న అఫీషియల్ మోడల్
                 llm = ChatGoogleGenerativeAI(
-                    model="gemini-1.5-flash", google_api_key=clean_key
+                    model="gemini-2.5-flash", google_api_key=clean_key
                 )
                 tools = [
                     check_website_status,
