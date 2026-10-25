@@ -58,7 +58,7 @@ def check_ssl_expiry(domain: str) -> str:
 
 @tool
 def get_system_health() -> str:
-    """Gets current local Windows system CPU usage percentage and RAM usage details."""
+    """Gets current system CPU usage percentage and RAM usage details."""
     try:
         cpu = psutil.cpu_percent(interval=1)
         ram = psutil.virtual_memory()
@@ -71,7 +71,7 @@ def get_system_health() -> str:
 
 @tool
 def check_windows_service(service_name: str) -> str:
-    """Checks the status of a Windows service (e.g., Spooler, wuauserv, WinRM, w3svc) using PowerShell. Note: Status 4 means Running, Status 1 means Stopped."""
+    """Checks the status of a Windows service using PowerShell. Status 4 = Running, Status 1 = Stopped."""
     try:
         cmd = f"Get-Service -Name '*{service_name}*' | Select-Object Name, DisplayName, Status | ConvertTo-Json"
         result = subprocess.run(
@@ -84,7 +84,7 @@ def check_windows_service(service_name: str) -> str:
             return f"Service Details:\n{result.stdout.strip()}"
         return f"No Windows service found matching '{service_name}'."
     except Exception as e:
-        return f"Error checking service: {str(e)}"
+        return f"Note: PowerShell is only available on Windows machines, not on Linux Cloud servers. ({str(e)})"
 
 
 @tool
@@ -102,7 +102,7 @@ def get_recent_system_errors(count: int = 3) -> str:
             return f"Recent System Event Logs:\n{result.stdout.strip()}"
         return "No recent errors or warnings found in the System Event Log."
     except Exception as e:
-        return f"Error reading event logs: {str(e)}"
+        return f"Note: Windows Event Logs are only available when running locally on Windows. ({str(e)})"
 
 
 st.set_page_config(page_title="Windows AIOps Agent", page_icon="🖥️")
@@ -113,6 +113,10 @@ api_key = st.sidebar.text_input(
     type="password",
     placeholder="Paste AIzaSy... key here",
 )
+selected_model = st.sidebar.selectbox(
+    "Select Gemini Model:",
+    ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.0-flash"],
+)
 
 st.write(
     "I can check **Websites**, **DNS/IP**, **SSL Expiry**, **CPU/RAM**, **Windows Services**, and **Windows Event Logs**!"
@@ -120,7 +124,7 @@ st.write(
 
 user_query = st.text_input(
     "Ask your Windows Admin Agent:",
-    placeholder="e.g., Check if the Spooler and WinRM services are running and show me the last 2 system event log errors",
+    placeholder="e.g., Check SSL expiry for microsoft.com and check current CPU/RAM usage",
 )
 
 if st.button("Run Agent"):
@@ -130,33 +134,40 @@ if st.button("Run Agent"):
         )
     elif user_query:
         clean_key = api_key.strip()
-        with st.spinner("Executing PowerShell & Python diagnostics..."):
-            llm = ChatGoogleGenerativeAI(
-                model="gemini-2.5-flash", google_api_key=clean_key
-            )
-            tools = [
-                check_website_status,
-                get_ip_address,
-                check_ssl_expiry,
-                get_system_health,
-                check_windows_service,
-                get_recent_system_errors,
-            ]
-            agent = create_agent(llm, tools)
-
-            response = agent.invoke({"messages": [("user", user_query)]})
-            raw_content = response["messages"][-1].content
-
-            if isinstance(raw_content, list):
-                clean_text = "\n".join(
-                    [
-                        item.get("text", "")
-                        for item in raw_content
-                        if isinstance(item, dict) and "text" in item
-                    ]
+        with st.spinner(f"Executing diagnostics using {selected_model}..."):
+            try:
+                llm = ChatGoogleGenerativeAI(
+                    model=selected_model,
+                    google_api_key=clean_key,
+                    max_retries=3,
                 )
-            else:
-                clean_text = str(raw_content)
+                tools = [
+                    check_website_status,
+                    get_ip_address,
+                    check_ssl_expiry,
+                    get_system_health,
+                    check_windows_service,
+                    get_recent_system_errors,
+                ]
+                agent = create_agent(llm, tools)
 
-            st.success("Diagnostics Completed!")
-            st.markdown(clean_text)
+                response = agent.invoke({"messages": [("user", user_query)]})
+                raw_content = response["messages"][-1].content
+
+                if isinstance(raw_content, list):
+                    clean_text = "\n".join(
+                        [
+                            item.get("text", "")
+                            for item in raw_content
+                            if isinstance(item, dict) and "text" in item
+                        ]
+                    )
+                else:
+                    clean_text = str(raw_content)
+
+                st.success("Diagnostics Completed!")
+                st.markdown(clean_text)
+            except Exception as e:
+                st.warning(
+                    "⏳ API Rate Limit Reached! ఫ్రీ టైర్ నిమిషం కోటా నిండింది. దయచేసి 30-60 సెకన్లు ఆగి మళ్ళీ ప్రయత్నించండి, లేదా సైడ్‌బార్‌లో వేరే మోడల్ సెలెక్ట్ చేయండి."
+                )
