@@ -2,6 +2,6 @@ streamlit
 langchain
 langchain-core
 langchain-google-genai
-langgraph
+langchain-groq
 psutil
 requests
