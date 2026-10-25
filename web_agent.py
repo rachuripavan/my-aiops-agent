@@ -115,7 +115,7 @@ api_key = st.sidebar.text_input(
 )
 
 st.write(
-    "I use **Google Gemini 3.8 Flash** as my brain to check websites, SSL, and system health!"
+    "I use **Google Gemini 1.5 Flash** as my brain to check websites, SSL, and system health!"
 )
 
 user_query = st.text_input(
@@ -130,11 +130,10 @@ if st.button("Run Agent"):
         )
     elif user_query:
         clean_key = api_key.strip()
-        with st.spinner("Executing diagnostics using Gemini 3.8 Flash..."):
+        with st.spinner("Executing diagnostics using Gemini 1.5 Flash..."):
             try:
-                # సరికొత్త లేటెస్ట్ మోడల్
                 llm = ChatGoogleGenerativeAI(
-                    model="gemini-3.8-flash", google_api_key=clean_key
+                    model="gemini-1.5-flash", google_api_key=clean_key
                 )
                 tools = [
                     check_website_status,
