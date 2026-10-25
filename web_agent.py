@@ -5,7 +5,6 @@ import subprocess
 from langchain.agents import create_agent
 from langchain_core.tools import tool
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_groq import ChatGroq
 import psutil
 import requests
 import streamlit as st
@@ -85,7 +84,7 @@ def check_windows_service(service_name: str) -> str:
             return f"Service Details:\n{result.stdout.strip()}"
         return f"No Windows service found matching '{service_name}'."
     except Exception as e:
-        return f"Note: PowerShell is only available on local Windows machines, not on Linux Cloud servers."
+        return f"Note: PowerShell is only available on local Windows machines."
 
 
 @tool
@@ -103,70 +102,40 @@ def get_recent_system_errors(count: int = 3) -> str:
             return f"Recent System Event Logs:\n{result.stdout.strip()}"
         return "No recent errors or warnings found."
     except Exception as e:
-        return f"Note: Windows Event Logs are only available when running locally on Windows."
+        return f"Note: Windows Event Logs are only available when running locally."
 
 
-st.set_page_config(page_title="Windows AIOps Agent", page_icon="🖥️")
-st.title("🖥️ Windows Admin & AIOps Agent")
+st.set_page_config(page_title="Cloud AIOps Agent", page_icon="☁️")
+st.title("☁️ Cloud-Powered AIOps Agent")
 
-# --- SIDEBAR SETTINGS ---
-provider = st.sidebar.radio(
-    "Select AI Provider:", ["Google Gemini", "Groq (Ultra-Fast & Free)"]
+api_key = st.sidebar.text_input(
+    "Enter your Gemini API Key:",
+    type="password",
+    placeholder="Paste AIzaSy... key here",
 )
 
-if provider == "Google Gemini":
-    api_key = st.sidebar.text_input(
-        "Enter Gemini API Key:", type="password", placeholder="AIzaSy..."
-    )
-    selected_model = st.sidebar.selectbox(
-        "Select Model:",
-        [
-            "gemini-2.0-flash",
-            "gemini-2.5-flash",
-            "gemini-2.5-flash-lite",
-            "gemini-1.5-flash",
-        ],
-    )
-else:
-    st.sidebar.markdown(
-        "Get free key at: [console.groq.com](https://console.groq.com/keys)"
-    )
-    api_key = st.sidebar.text_input(
-        "Enter Groq API Key:", type="password", placeholder="gsk_..."
-    )
-    selected_model = st.sidebar.selectbox(
-        "Select Model:",
-        [
-            "llama-3.1-8b-instant",
-            "llama-3.3-70b-versatile",
-            "llama3-70b-8192",
-        ],
-    )
-    
-
 st.write(
-    "I can check **Websites**, **DNS/IP**, **SSL Expiry**, **CPU/RAM**, **Windows Services**, and **Windows Event Logs**!"
+    "I use **Google Gemini 2.0 Flash** as my brain to check websites, SSL, and system health!"
 )
 
 user_query = st.text_input(
     "Ask your AIOps Agent:",
-    placeholder="e.g., Check SSL expiry for microsoft.com and check current CPU/RAM usage",
+    placeholder="e.g., Check SSL expiry for microsoft.com and check CPU/RAM usage",
 )
 
 if st.button("Run Agent"):
     if not api_key:
-        st.error("దయచేసి ఎడమవైపు ఉన్న సైడ్‌బార్‌లో మీ API Key ని పేస్ట్ చేయండి!")
+        st.error(
+            "దయచేసి ఎడమవైపు ఉన్న సైడ్‌బార్‌లో మీ Gemini API Key ని పేస్ట్ చేయండి!"
+        )
     elif user_query:
         clean_key = api_key.strip()
-        with st.spinner(f"Executing diagnostics using {selected_model}..."):
+        with st.spinner("Executing diagnostics using Gemini 2.0 Flash..."):
             try:
-                if provider == "Google Gemini":
-                    llm = ChatGoogleGenerativeAI(
-                        model=selected_model, google_api_key=clean_key
-                    )
-                else:
-                    llm = ChatGroq(model=selected_model, groq_api_key=clean_key)
-
+                # అత్యంత సరికొత్త మరియు స్థిరమైన మోడల్
+                llm = ChatGoogleGenerativeAI(
+                    model="gemini-2.0-flash", google_api_key=clean_key
+                )
                 tools = [
                     check_website_status,
                     get_ip_address,
