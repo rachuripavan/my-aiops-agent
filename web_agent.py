@@ -1,18 +1,13 @@
 from datetime import datetime
 import socket
 import ssl
-import subprocess
-from langchain.agents import create_agent
-from langchain_core.tools import tool
-from langchain_google_genai import ChatGoogleGenerativeAI
 import psutil
 import requests
 import streamlit as st
 
 
-@tool
 def check_website_status(url: str) -> str:
-    """Checks if a website URL (must start with http:// or https://) is online and returns HTTP status code."""
+    """Checks if a website URL is online and returns HTTP status code."""
     try:
         response = requests.get(url, timeout=5)
         return f"ONLINE (HTTP {response.status_code})"
@@ -20,22 +15,8 @@ def check_website_status(url: str) -> str:
         return f"DOWN or Error: {str(e)}"
 
 
-@tool
-def get_ip_address(domain: str) -> str:
-    """Finds the IP address of a domain name (e.g., google.com, microsoft.com)."""
-    try:
-        clean_domain = (
-            domain.replace("https://", "").replace("http://", "").split("/")[0]
-        )
-        ip = socket.gethostbyname(clean_domain)
-        return f"The IP address of {clean_domain} is {ip}"
-    except Exception as e:
-        return f"Could not resolve DNS for {domain}: {str(e)}"
-
-
-@tool
 def check_ssl_expiry(domain: str) -> str:
-    """Checks the SSL/TLS certificate expiry date and remaining days for a domain (e.g., google.com)."""
+    """Checks the SSL/TLS certificate expiry date and remaining days for a domain."""
     try:
         clean_domain = (
             domain.replace("https://", "").replace("http://", "").split("/")[0]
@@ -56,7 +37,6 @@ def check_ssl_expiry(domain: str) -> str:
         return f"SSL check failed for {domain}: {str(e)}"
 
 
-@tool
 def get_system_health() -> str:
     """Gets current system CPU usage percentage and RAM usage details."""
     try:
@@ -69,96 +49,43 @@ def get_system_health() -> str:
         return f"Failed to get system stats: {str(e)}"
 
 
-@tool
-def check_windows_service(service_name: str) -> str:
-    """Checks the status of a Windows service using PowerShell."""
-    try:
-        cmd = f"Get-Service -Name '*{service_name}*' | Select-Object Name, DisplayName, Status | ConvertTo-Json"
-        result = subprocess.run(
-            ["powershell", "-Command", cmd],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        if result.stdout.strip():
-            return f"Service Details:\n{result.stdout.strip()}"
-        return f"No Windows service found matching '{service_name}'."
-    except Exception as e:
-        return f"Note: PowerShell is only available on local Windows machines."
+st.set_page_config(
+    page_title="Lightning Fast Cloud AIOps", page_icon="⚡", layout="centered"
+)
+st.title("⚡ Lightning Fast Cloud AIOps Dashboard")
 
-
-@tool
-def get_recent_system_errors(count: int = 3) -> str:
-    """Fetches the most recent Error or Warning events from the Windows System Event Log."""
-    try:
-        cmd = f"Get-EventLog -LogName System -EntryType Error,Warning -Newest {count} | Select-Object TimeGenerated, EntryType, Source, Message | ConvertTo-Json"
-        result = subprocess.run(
-            ["powershell", "-Command", cmd],
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
-        if result.stdout.strip():
-            return f"Recent System Event Logs:\n{result.stdout.strip()}"
-        return "No recent errors or warnings found."
-    except Exception as e:
-        return f"Note: Windows Event Logs are only available when running locally."
-
-
-st.set_page_config(page_title="Cloud AIOps Agent", page_icon="☁️")
-st.title("☁️ Cloud-Powered AIOps Agent")
-
-api_key = st.sidebar.text_input(
-    "Enter your Gemini API Key:",
-    type="password",
-    placeholder="Paste AIzaSy... key here",
+st.markdown(
+    "ఈ డాష్‌బోర్డ్ పూర్తిగా **API Keys, Model Not Found (404) మరియు Quota Errors** లేకుండా ఎంతో వేగంగా పనిచేస్తుంది!"
 )
 
-st.write("I use **Google Gemini 2.5 Flash** as my AI brain!")
-
-user_query = st.text_input(
-    "Ask your AIOps Agent:",
-    placeholder="e.g., Check SSL expiry for microsoft.com and check CPU/RAM usage",
+target_url = st.text_input(
+    "Enter Website/Domain:",
+    placeholder="e.g., https://www.microsoft.com or google.com",
 )
 
-if st.button("Run Agent"):
-    if not api_key:
-        st.error(
-            "దయచేసి ఎడమవైపు ఉన్న సైడ్‌బార్‌లో మీ Gemini API Key ని పేస్ట్ చేయండి!"
-        )
-    elif user_query:
-        clean_key = api_key.strip()
-        with st.spinner("Executing diagnostics using Gemini 2.5 Flash..."):
-            try:
-                # ప్రస్తుతం పనిచేస్తున్న అఫీషియల్ మోడల్
-                llm = ChatGoogleGenerativeAI(
-                    model="gemini-2.5-flash", google_api_key=clean_key
-                )
-                tools = [
-                    check_website_status,
-                    get_ip_address,
-                    check_ssl_expiry,
-                    get_system_health,
-                    check_windows_service,
-                    get_recent_system_errors,
-                ]
-                agent = create_agent(llm, tools)
+st.markdown("---")
 
-                response = agent.invoke({"messages": [("user", user_query)]})
-                raw_content = response["messages"][-1].content
+col1, col2 = st.columns(2)
 
-                if isinstance(raw_content, list):
-                    clean_text = "\n".join(
-                        [
-                            item.get("text", "")
-                            for item in raw_content
-                            if isinstance(item, dict) and "text" in item
-                        ]
-                    )
-                else:
-                    clean_text = str(raw_content)
+with col1:
+    if st.button("🌐 Check Website Status", use_container_width=True):
+        if target_url:
+            with st.spinner("Checking website..."):
+                res = check_website_status(target_url)
+                st.success(res)
+        else:
+            st.warning("దయచేసి వెబ్‌సైట్ యూరల్ ఎంటర్ చేయండి.")
 
-                st.success("Diagnostics Completed!")
-                st.markdown(clean_text)
-            except Exception as e:
-                st.error(f"Exact Error Details: {str(e)}")
+    if st.button("📊 Check System Health", use_container_width=True):
+        with st.spinner("Fetching server stats..."):
+            res = get_system_health()
+            st.info(res)
+
+with col2:
+    if st.button("🔒 Check SSL Expiry", use_container_width=True):
+        if target_url:
+            with st.spinner("Checking SSL certificate..."):
+                res = check_ssl_expiry(target_url)
+                st.success(res)
+        else:
+            st.warning("దయచేసి డొమైన్ ఎంటర్ చేయండి.")
