@@ -134,8 +134,8 @@ else:
     api_key = st.sidebar.text_input(
         "Enter Groq API Key:", type="password", placeholder="gsk_..."
     )
-    selected_model = st.sidebar.selectbox(
-        "Select Model:", ["llama-3.3-70b-versatile"]
+selected_model = st.sidebar.selectbox(
+        "Select Model:", ["llama-3.1-8b-instant"]
     )
 
 st.write(
