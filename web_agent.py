@@ -128,12 +128,14 @@ if provider == "Google Gemini":
         ],
     )
 else:
-    st.sidebar.markdown("Get free key at: [console.groq.com](https://console.groq.com/keys)")
+    st.sidebar.markdown(
+        "Get free key at: [console.groq.com](https://console.groq.com/keys)"
+    )
     api_key = st.sidebar.text_input(
         "Enter Groq API Key:", type="password", placeholder="gsk_..."
     )
     selected_model = st.sidebar.selectbox(
-        "Select Model:", ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+        "Select Model:", ["llama-3.3-70b-versatile"]
     )
 
 st.write(
