@@ -5,6 +5,7 @@ import subprocess
 from langchain.agents import create_agent
 from langchain_core.tools import tool
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_groq import ChatGroq
 import psutil
 import requests
 import streamlit as st
@@ -71,7 +72,7 @@ def get_system_health() -> str:
 
 @tool
 def check_windows_service(service_name: str) -> str:
-    """Checks the status of a Windows service using PowerShell. Status 4 = Running, Status 1 = Stopped."""
+    """Checks the status of a Windows service using PowerShell."""
     try:
         cmd = f"Get-Service -Name '*{service_name}*' | Select-Object Name, DisplayName, Status | ConvertTo-Json"
         result = subprocess.run(
@@ -84,12 +85,12 @@ def check_windows_service(service_name: str) -> str:
             return f"Service Details:\n{result.stdout.strip()}"
         return f"No Windows service found matching '{service_name}'."
     except Exception as e:
-        return f"Note: PowerShell is only available on Windows machines, not on Linux Cloud servers. ({str(e)})"
+        return f"Note: PowerShell is only available on local Windows machines, not on Linux Cloud servers."
 
 
 @tool
 def get_recent_system_errors(count: int = 3) -> str:
-    """Fetches the most recent Error or Warning events from the Windows System Event Log using PowerShell."""
+    """Fetches the most recent Error or Warning events from the Windows System Event Log."""
     try:
         cmd = f"Get-EventLog -LogName System -EntryType Error,Warning -Newest {count} | Select-Object TimeGenerated, EntryType, Source, Message | ConvertTo-Json"
         result = subprocess.run(
@@ -100,47 +101,64 @@ def get_recent_system_errors(count: int = 3) -> str:
         )
         if result.stdout.strip():
             return f"Recent System Event Logs:\n{result.stdout.strip()}"
-        return "No recent errors or warnings found in the System Event Log."
+        return "No recent errors or warnings found."
     except Exception as e:
-        return f"Note: Windows Event Logs are only available when running locally on Windows. ({str(e)})"
+        return f"Note: Windows Event Logs are only available when running locally on Windows."
 
 
 st.set_page_config(page_title="Windows AIOps Agent", page_icon="🖥️")
 st.title("🖥️ Windows Admin & AIOps Agent")
 
-api_key = st.sidebar.text_input(
-    "Enter your Gemini API Key:",
-    type="password",
-    placeholder="Paste AIzaSy... key here",
+# --- SIDEBAR SETTINGS ---
+provider = st.sidebar.radio(
+    "Select AI Provider:", ["Google Gemini", "Groq (Ultra-Fast & Free)"]
 )
-selected_model = st.sidebar.selectbox(
-    "Select Gemini Model:",
-    ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.0-flash"],
-)
+
+if provider == "Google Gemini":
+    api_key = st.sidebar.text_input(
+        "Enter Gemini API Key:", type="password", placeholder="AIzaSy..."
+    )
+    selected_model = st.sidebar.selectbox(
+        "Select Model:",
+        [
+            "gemini-2.0-flash",
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
+            "gemini-1.5-flash",
+        ],
+    )
+else:
+    st.sidebar.markdown("Get free key at: [console.groq.com](https://console.groq.com/keys)")
+    api_key = st.sidebar.text_input(
+        "Enter Groq API Key:", type="password", placeholder="gsk_..."
+    )
+    selected_model = st.sidebar.selectbox(
+        "Select Model:", ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+    )
 
 st.write(
     "I can check **Websites**, **DNS/IP**, **SSL Expiry**, **CPU/RAM**, **Windows Services**, and **Windows Event Logs**!"
 )
 
 user_query = st.text_input(
-    "Ask your Windows Admin Agent:",
+    "Ask your AIOps Agent:",
     placeholder="e.g., Check SSL expiry for microsoft.com and check current CPU/RAM usage",
 )
 
 if st.button("Run Agent"):
     if not api_key:
-        st.error(
-            "దయచేసి ఎడమవైపు ఉన్న సైడ్‌బార్‌లో మీ Gemini API Key ని పేస్ట్ చేయండి!"
-        )
+        st.error("దయచేసి ఎడమవైపు ఉన్న సైడ్‌బార్‌లో మీ API Key ని పేస్ట్ చేయండి!")
     elif user_query:
         clean_key = api_key.strip()
         with st.spinner(f"Executing diagnostics using {selected_model}..."):
             try:
-                llm = ChatGoogleGenerativeAI(
-                    model=selected_model,
-                    google_api_key=clean_key,
-                    max_retries=3,
-                )
+                if provider == "Google Gemini":
+                    llm = ChatGoogleGenerativeAI(
+                        model=selected_model, google_api_key=clean_key
+                    )
+                else:
+                    llm = ChatGroq(model=selected_model, groq_api_key=clean_key)
+
                 tools = [
                     check_website_status,
                     get_ip_address,
@@ -168,6 +186,4 @@ if st.button("Run Agent"):
                 st.success("Diagnostics Completed!")
                 st.markdown(clean_text)
             except Exception as e:
-                st.warning(
-                    "⏳ API Rate Limit Reached! ఫ్రీ టైర్ నిమిషం కోటా నిండింది. దయచేసి 30-60 సెకన్లు ఆగి మళ్ళీ ప్రయత్నించండి, లేదా సైడ్‌బార్‌లో వేరే మోడల్ సెలెక్ట్ చేయండి."
-                )
+                st.error(f"Exact Error Details: {str(e)}")
